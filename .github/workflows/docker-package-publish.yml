@@ -201,6 +201,13 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}
+          # Installer uses GML_VERSION = release tag or master
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{raw}}
 
       - name: Create manifest list and push
         id: create-manifest
