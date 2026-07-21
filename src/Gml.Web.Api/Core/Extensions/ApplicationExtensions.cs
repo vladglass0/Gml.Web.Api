@@ -189,6 +189,7 @@ public static class ApplicationExtensions
             .AddSingleton<PlayersController>()
             .AddSingleton<NotificationController>()
             .AddScoped<ISystemService, SystemService>()
+            .AddScoped<IFileManagerService, FileManagerService>()
             .AddScoped<RestoreService>()
             .AddScoped<ISkinServiceManager, SkinServiceManager>()
             .AddSingleton<IAuthService, AuthService>()

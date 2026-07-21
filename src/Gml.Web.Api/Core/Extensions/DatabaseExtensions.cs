@@ -120,7 +120,9 @@ public static class DatabaseExtensions
                 ("players.ban", "Блокировка игроков"),
                 ("players.pardon", "Разблокировка игроков"),
                 ("servers.manage", "Управление игровыми серверами через SignalR хаб"),
-                ("notifications.manage", "Управление уведомлениями через SignalR хаб")
+                ("notifications.manage", "Управление уведомлениями через SignalR хаб"),
+                ("files.global.manage", "Управление файлами инстанса Gml"),
+                ("files.profile.manage", "Управление файлами внутри профиля")
             };
 
             var basePermNames = basePerms.Select(p => p.Name).ToArray();

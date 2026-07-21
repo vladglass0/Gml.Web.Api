@@ -1042,6 +1042,83 @@ public static class EndpointsExtensions
             .Produces<ResponseMessage>((int)HttpStatusCode.NotFound)
             .RequireAuthorization("perm:profiles.update");
 
+        app.MapGet("/api/v1/file-manager/entries", FileManagerHandler.ListEntries)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Список файлов и папок файлового менеджера";
+                return generatedOperation;
+            })
+            .WithDescription("Список файлов и папок файлового менеджера")
+            .WithName("File manager list entries")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapGet("/api/v1/file-manager/content", FileManagerHandler.ReadContent)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Чтение текстового файла";
+                return generatedOperation;
+            })
+            .WithDescription("Чтение текстового файла")
+            .WithName("File manager read content")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapPut("/api/v1/file-manager/content", FileManagerHandler.WriteContent)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Сохранение текстового файла";
+                return generatedOperation;
+            })
+            .WithDescription("Сохранение текстового файла")
+            .WithName("File manager write content")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapPost("/api/v1/file-manager/delete", FileManagerHandler.DeleteEntries)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Удаление файлов и папок";
+                return generatedOperation;
+            })
+            .WithDescription("Удаление файлов и папок")
+            .WithName("File manager delete")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapGet("/api/v1/file-manager/download", FileManagerHandler.Download)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Скачивание файла";
+                return generatedOperation;
+            })
+            .WithDescription("Скачивание файла")
+            .WithName("File manager download")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapPost("/api/v1/file-manager/archive", FileManagerHandler.Archive)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Архивация файлов и папок в zip";
+                return generatedOperation;
+            })
+            .WithDescription("Архивация файлов и папок в zip")
+            .WithName("File manager archive")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
+        app.MapPost("/api/v1/file-manager/extract", FileManagerHandler.Extract)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Распаковка zip архива";
+                return generatedOperation;
+            })
+            .WithDescription("Распаковка zip архива")
+            .WithName("File manager extract")
+            .WithTags("FileManager")
+            .RequireAuthorization();
+
         #endregion
 
         #region Settings
