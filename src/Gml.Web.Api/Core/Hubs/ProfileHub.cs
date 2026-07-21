@@ -104,11 +104,17 @@ public class ProfileHub : BaseHub
 
             var logInfo = profile.GameLoader.LoadLog.Subscribe(logs => { Log(logs, profile.Name); });
 
+            var loadErrors = new List<string>();
+
             var exception = profile.GameLoader.LoadException.Subscribe(async logs =>
             {
+                var message = logs.ToString();
+                if (!string.IsNullOrWhiteSpace(message))
+                    loadErrors.Add(message);
+
                 try
                 {
-                    await Clients.All.SendAsync("OnException", profile.Name, logs.ToString());
+                    await Clients.All.SendAsync("OnException", profile.Name, message);
                 }
                 catch (Exception exception)
                 {
@@ -119,12 +125,21 @@ public class ProfileHub : BaseHub
 
             await _gmlManager.Profiles.RestoreProfileInfo(profile.Name);
 
-            await Clients.All.SendAsync("SuccessInstalled", profile.Name);
-
             fullPercentage.Dispose();
             loadPercentage.Dispose();
             logInfo.Dispose();
             exception.Dispose();
+
+            if (loadErrors.Count > 0)
+            {
+                SendCallerMessage(
+                    $"Загрузка профиля завершилась с ошибками ({loadErrors.Count}). Проверьте лог.");
+                await Clients.All.SendAsync("RestoreFailed", profile.Name);
+                lastProgress = -1;
+                return;
+            }
+
+            await Clients.All.SendAsync("SuccessInstalled", profile.Name);
 
             lastProgress = -1;
         }
