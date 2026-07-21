@@ -6,6 +6,7 @@ name: Docker
 # documentation.
 
 on:
+  workflow_dispatch:
   push:
     branches: [ 'master', 'develop', 'feature/*' ]
     # Publish semver tags as releases.
@@ -65,8 +66,6 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-22.04
-          - platform: linux/arm64
-            runner: ubuntu-22.04-arm
     permissions:
       contents: read
       packages: write
