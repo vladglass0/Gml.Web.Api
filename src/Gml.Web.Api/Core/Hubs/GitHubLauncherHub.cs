@@ -1,15 +1,14 @@
-using System.Reactive.Linq;
+using Gml.Web.Api.Core.Options;
 using Gml.Web.Api.Core.Services;
 using GmlCore.Interfaces;
 using GmlCore.Interfaces.Enums;
 using Microsoft.AspNetCore.SignalR;
+using System.Reactive.Linq;
 
 namespace Gml.Web.Api.Core.Hubs;
 
 public class GitHubLauncherHub(IGitHubService gitHubService, IGmlManager gmlManager) : BaseHub
 {
-    private const string _launcherGitHub = "https://github.com/Gml-Launcher/Gml.Launcher";
-
     public async Task Download(string branchName, string host, string folderName)
     {
         using var cts = new CancellationTokenSource();
@@ -27,8 +26,9 @@ public class GitHubLauncherHub(IGitHubService gitHubService, IGmlManager gmlMana
             projectPath = Path.Combine(gmlManager.LauncherInfo.InstallationDirectory, "Launcher");
 
             ChangeProgress(nameof(GitHubLauncherHub), 5);
-            var allowedVersions = await gitHubService
-                .GetRepositoryTags("Gml-Launcher", "Gml.Launcher");
+            var allowedVersions = await gitHubService.GetLauncherVersions(
+                LauncherGitHubDefaults.Owner,
+                LauncherGitHubDefaults.Repository);
 
             if (allowedVersions.All(c => c != branchName))
             {
@@ -45,7 +45,10 @@ public class GitHubLauncherHub(IGitHubService gitHubService, IGmlManager gmlMana
                 .Select(x => (int)(10 + Math.Min(x * 0.5, 88)))
                 .Subscribe(progress => ChangeProgress(nameof(GitHubLauncherHub), progress));
 
-            var newFolder = await gitHubService.DownloadProject(projectPath, branchName, _launcherGitHub);
+            var newFolder = await gitHubService.DownloadProject(
+                projectPath,
+                branchName,
+                LauncherGitHubDefaults.CloneUrl);
 
             await cts.CancelAsync();
             progressSubscription.Dispose();

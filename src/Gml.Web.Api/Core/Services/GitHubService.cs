@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO.Compression;
+using Gml.Web.Api.Core.Options;
 using GmlCore.Interfaces;
 using Newtonsoft.Json.Linq;
 
@@ -34,15 +35,15 @@ public class GitHubService : IGitHubService
 
             var branches = JArray.Parse(responseString);
 
-            _versions = branches.Select(c => c["name"].ToString()).ToArray();
+            _branches = branches.Select(c => c["name"]!.ToString()).ToArray();
         }
 
-        return _branches;
+        return _branches ?? Array.Empty<string>();
     }
 
     public async Task<IEnumerable<string>> GetRepositoryTags(string user, string repository)
     {
-        var url = "https://api.github.com/repos/Gml-Launcher/Gml.Launcher/tags";
+        var url = $"https://api.github.com/repos/{user}/{repository}/tags?per_page=100";
 
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("request");
 
@@ -54,10 +55,25 @@ public class GitHubService : IGitHubService
 
             var branches = JArray.Parse(responseString);
 
-            _versions = branches.Select(c => c["name"].ToString()).ToArray();
+            _versions = branches.Select(c => c["name"]!.ToString()).ToArray();
         }
 
-        return _versions;
+        return _versions ?? Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Tags plus default branch (so latest master is always selectable).
+    /// </summary>
+    public async Task<IEnumerable<string>> GetLauncherVersions(string user, string repository)
+    {
+        var tags = (await GetRepositoryTags(user, repository)).ToList();
+        var versions = new List<string>();
+
+        if (!tags.Any(t => string.Equals(t, LauncherGitHubDefaults.DefaultBranch, StringComparison.OrdinalIgnoreCase)))
+            versions.Add(LauncherGitHubDefaults.DefaultBranch);
+
+        versions.AddRange(tags);
+        return versions.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     // public async Task<string> DownloadProject(string projectPath, string branchName, string repoUrl)

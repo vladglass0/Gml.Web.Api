@@ -4,6 +4,7 @@ using FluentValidation;
 using Gml.Domains.LauncherDto;
 using Gml.Dto.Launcher;
 using Gml.Dto.Messages;
+using Gml.Web.Api.Core.Options;
 using Gml.Web.Api.Core.Services;
 using GmlCore.Interfaces;
 
@@ -11,11 +12,11 @@ namespace Gml.Web.Api.Core.Handlers;
 
 public class GitHubIntegrationHandler : IGitHubIntegrationHandler
 {
-    private const string LauncherGitHubUrl = "https://github.com/Gml-Launcher/Gml.Backend.git";
-
     public static async Task<IResult> GetVersions(IGitHubService gitHubService)
     {
-        var versions = await gitHubService.GetRepositoryTags("Gml-Launcher", "Gml.Launcher");
+        var versions = await gitHubService.GetLauncherVersions(
+            LauncherGitHubDefaults.Owner,
+            LauncherGitHubDefaults.Repository);
 
         var versionsDtos = versions.Select(c => new LauncherVersionReadDto
         {
@@ -40,7 +41,7 @@ public class GitHubIntegrationHandler : IGitHubIntegrationHandler
         var path = Path.Combine(manager.LauncherInfo.InstallationDirectory, "Launcher");
 
         var projectPath =
-            await gitHubService.DownloadProject(path, launcherCreateDto.GitHubVersions, LauncherGitHubUrl);
+            await gitHubService.DownloadProject(path, launcherCreateDto.GitHubVersions, LauncherGitHubDefaults.CloneUrl);
 
         await gitHubService.EditLauncherFiles(projectPath, launcherCreateDto.Host, launcherCreateDto.Folder);
 
