@@ -237,9 +237,18 @@ public class Tests
     [Order(8)]
     public async Task UpdateSettings()
     {
-        var httpContent = TestHelper.CreateJsonObject(new SettingsUpdateDto
+        var httpContent = TestHelper.CreateJsonObject(new
         {
-            RegistrationIsEnabled = true
+            RegistrationIsEnabled = true,
+            StorageType = 0,
+            StorageHost = "",
+            StorageLogin = "",
+            StoragePassword = "",
+            CurseForgeKey = "",
+            VkKey = "",
+            TextureProtocol = 1,
+            SentryNeedAutoClear = false,
+            SentryAutoClearPeriod = "00:05:00"
         });
 
         var response = await _httpClient.PutAsync("/api/v1/settings/platform", httpContent);
@@ -840,14 +849,18 @@ public class Tests
     [Order(51)]
     public async Task UpdatePlatformSettings()
     {
-        var httpContent = TestHelper.CreateJsonObject(new SettingsUpdateDto
+        var httpContent = TestHelper.CreateJsonObject(new
         {
             RegistrationIsEnabled = true,
             StorageHost = "",
             StorageLogin = "",
             CurseForgeKey = "",
+            VkKey = "",
             StoragePassword = "",
-            StorageType = (int)StorageType.LocalStorage
+            StorageType = (int)StorageType.LocalStorage,
+            TextureProtocol = 1,
+            SentryNeedAutoClear = false,
+            SentryAutoClearPeriod = "00:05:00"
         });
 
         var response = await _httpClient.PutAsync("/api/v1/settings/platform", httpContent);

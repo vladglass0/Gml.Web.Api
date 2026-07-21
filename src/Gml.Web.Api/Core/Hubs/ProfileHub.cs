@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Gml.Web.Api.Core.Models.Java;
+using Gml.Web.Api.Core.Services;
 using GmlCore.Interfaces;
 using GmlCore.Interfaces.Enums;
 using Microsoft.AspNetCore.Http.Json;
@@ -75,6 +77,65 @@ public class ProfileHub : BaseHub
 
     public async Task Restore(string profileName)
     {
+        await RestoreInternal(profileName);
+    }
+
+    public async Task RestoreAndChangeBootstrapVersion(string profileName, JavaVersionDto? javaVersion)
+    {
+        try
+        {
+            if (javaVersion is not null
+                && !string.Equals(javaVersion.Source, JavaRuntimeSource.Default, StringComparison.OrdinalIgnoreCase)
+                && javaVersion.Source != "default"
+                && !string.IsNullOrWhiteSpace(javaVersion.Version)
+                && !string.Equals(javaVersion.Version, "default", StringComparison.OrdinalIgnoreCase))
+            {
+                var runtime = Context.GetHttpContext()?.RequestServices.GetRequiredService<IJavaRuntimeService>();
+                if (runtime is not null
+                    && string.Equals(javaVersion.Source, JavaRuntimeSource.Azul, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(javaVersion.DownloadUrl))
+                {
+                    await runtime.AssignAzulAsync(profileName, new JavaAzulAssignRequest
+                    {
+                        DownloadUrl = javaVersion.DownloadUrl,
+                        PackageUuid = javaVersion.PackageUuid,
+                        Name = javaVersion.Name,
+                        Version = javaVersion.Version,
+                        MajorVersion = javaVersion.MajorVersion,
+                        Os = javaVersion.Os,
+                        Arch = javaVersion.Arch
+                    });
+                }
+                else if (runtime is not null)
+                {
+                    // Already assigned custom/azul runtime — ensure JavaPath applied from meta
+                    var profile = await _gmlManager.Profiles.GetProfile(profileName);
+                    if (profile is not null)
+                    {
+                        var meta = await runtime.GetMetaAsync(profileName);
+                        await runtime.ApplyToProfileAsync(profile, meta);
+                    }
+                }
+            }
+            else
+            {
+                var runtime = Context.GetHttpContext()?.RequestServices.GetRequiredService<IJavaRuntimeService>();
+                if (runtime is not null)
+                    await runtime.SetDefaultAsync(profileName);
+            }
+
+            await RestoreInternal(profileName);
+        }
+        catch (Exception exception)
+        {
+            _gmlManager.BugTracker.CaptureException(exception);
+            SendCallerMessage($"Не удалось применить Java и восстановить профиль. {exception.Message}");
+            await Clients.All.SendAsync("RestoreFailed", profileName);
+        }
+    }
+
+    private async Task RestoreInternal(string profileName)
+    {
         try
         {
             var profile = await _gmlManager.Profiles.GetProfile(profileName);
@@ -90,6 +151,18 @@ public class ProfileHub : BaseHub
                 SendCallerMessage(
                     "В данный момент уже происходит загрузка выбранного профиля!");
                 return;
+            }
+
+            // Ensure selected runtime meta exists before restore (JavaPath stored in sidecar).
+            try
+            {
+                var runtime = Context.GetHttpContext()?.RequestServices.GetService<IJavaRuntimeService>();
+                if (runtime is not null)
+                    _ = await runtime.GetMetaAsync(profileName);
+            }
+            catch
+            {
+                // non-fatal
             }
 
             var fullPercentage = profile.GameLoader.FullPercentages.Subscribe(percentage =>
@@ -148,6 +221,7 @@ public class ProfileHub : BaseHub
             _gmlManager.BugTracker.CaptureException(exception);
             SendCallerMessage($"Не удалось восстановить профиль. {exception.Message}");
             Console.WriteLine(exception);
+            await Clients.All.SendAsync("RestoreFailed", profileName);
         }
     }
 

@@ -697,6 +697,70 @@ public static class EndpointsExtensions
             .Produces<ResponseMessage>((int)HttpStatusCode.BadRequest)
             .RequireAuthorization("perm:profiles.view");
 
+        app.MapGet("/api/v1/profiles/java/recommend", JavaHandler.Recommend)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Рекомендуемая major-версия Java для Minecraft";
+                return generatedOperation;
+            })
+            .WithDescription("Рекомендация Java по версии Minecraft")
+            .WithName("Recommend Java")
+            .WithTags("Profiles", "Java")
+            .RequireAuthorization("perm:profiles.view");
+
+        app.MapGet("/api/v1/profiles/versions/java", JavaHandler.ListVersions)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Список доступных версий Java (default + Azul)";
+                return generatedOperation;
+            })
+            .WithDescription("Список версий Java для шага загрузки клиента")
+            .WithName("Java versions")
+            .WithTags("Profiles", "Java")
+            .RequireAuthorization("perm:profiles.view");
+
+        app.MapGet("/api/v1/profiles/{profileName}/java", JavaHandler.GetMeta)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Текущая привязка Java к профилю";
+                return generatedOperation;
+            })
+            .WithName("Profile Java meta")
+            .WithTags("Profiles", "Java")
+            .RequireAuthorization("perm:profiles.view");
+
+        app.MapPost("/api/v1/profiles/{profileName}/java/azul", JavaHandler.AssignAzul)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Скачать Azul JDK и привязать к профилю";
+                return generatedOperation;
+            })
+            .WithName("Assign Azul Java")
+            .WithTags("Profiles", "Java")
+            .DisableAntiforgery()
+            .RequireAuthorization("perm:profiles.update");
+
+        app.MapPost("/api/v1/profiles/{profileName}/java/upload", JavaHandler.Upload)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Загрузить свой JDK-архив и привязать к профилю";
+                return generatedOperation;
+            })
+            .WithName("Upload Java")
+            .WithTags("Profiles", "Java")
+            .DisableAntiforgery()
+            .RequireAuthorization("perm:profiles.update");
+
+        app.MapPost("/api/v1/profiles/{profileName}/java/default", JavaHandler.SetDefault)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Сбросить Java профиля на значение по умолчанию";
+                return generatedOperation;
+            })
+            .WithName("Default Java")
+            .WithTags("Profiles", "Java")
+            .RequireAuthorization("perm:profiles.update");
+
         app.MapPost("/api/v1/profiles", ProfileHandler.CreateProfile)
             .WithOpenApi(generatedOperation =>
             {

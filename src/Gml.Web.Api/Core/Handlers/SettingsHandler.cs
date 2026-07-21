@@ -7,6 +7,7 @@ using Gml.Dto.Auth;
 using Gml.Dto.Messages;
 using Gml.Dto.Settings;
 using Gml.Dto.User;
+using Gml.Web.Api.Core.Models.Settings;
 using Gml.Web.Api.Core.Options;
 using Gml.Web.Api.Core.Repositories;
 using Gml.Web.Api.Core.Services;
@@ -23,9 +24,10 @@ public abstract class SettingsHandler : ISettingsHandler
     public static async Task<IResult> UpdateSettings(
         ISettingsRepository settingsService,
         IMapper mapper,
-        SettingsUpdateDto settingsDto)
+        [FromBody] SettingsUpdateRequest settingsDto)
     {
-        var settings = mapper.Map<Settings>(settingsDto);
+        var previous = await settingsService.GetSettings();
+        var settings = settingsDto.ToDomain(previous);
 
         var result = await settingsService.UpdateSettings(settings);
 

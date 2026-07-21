@@ -27,6 +27,13 @@ public static class HttpClientsExtensions
         services.AddHttpClient(HttpClientNames.MarketService,
             client => { client.BaseAddress = new Uri(marketEndpoint); });
 
+        services.AddHttpClient(HttpClientNames.AzulMetadata, client =>
+        {
+            client.BaseAddress = new Uri("https://api.azul.com/metadata/v1/");
+            client.Timeout = TimeSpan.FromMinutes(2);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+        });
+
         return services;
     }
 
