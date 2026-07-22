@@ -1,12 +1,14 @@
 using System.Net;
 using AutoMapper;
 using FluentValidation;
+using Gml.Domains.Integrations;
 using Gml.Dto.Integration;
 using Gml.Dto.Messages;
 using Gml.Dto.Player;
 using Gml.Dto.User;
 using Gml.Web.Api.Core.Extensions;
 using Gml.Web.Api.Core.Integrations.Auth;
+using Gml.Web.Api.Core.Services;
 using GmlCore.Interfaces;
 using GmlCore.Interfaces.Auth;
 using GmlCore.Interfaces.Enums;
@@ -55,14 +57,6 @@ public class AuthIntegrationHandler : IAuthIntegrationHandler
 
         await gmlManager.Profiles.CreateUserSessionAsync(null, player, host);
 
-        // player.TextureSkinUrl = (await gmlManager.Integrations.GetSkinServiceAsync())
-        //     .Replace("{userName}", player.Name)
-        //     .Replace("{userUuid}", player.Uuid);
-        //
-        // player.TextureCloakUrl = (await gmlManager.Integrations.GetCloakServiceAsync())
-        //     .Replace("{userName}", player.Name)
-        //     .Replace("{userUuid}", player.Uuid);
-
         return Results.Ok(ResponseMessage.Create(
             mapper.Map<PlayerReadDto>(player),
             string.Empty,
@@ -82,10 +76,46 @@ public class AuthIntegrationHandler : IAuthIntegrationHandler
             HttpStatusCode.InternalServerError));
     }
 
+    private static async Task ApplyPlayerAccessToken(
+        IUser player,
+        AuthResult authResult,
+        IAccessTokenService accessTokenService,
+        ExternalPlayerTokenStore tokenStore,
+        IGmlManager gmlManager)
+    {
+        // Prefer tokens from the external site (UnicoreCMS etc.) when present.
+        if (authResult is ExtendedAuthResult { AccessToken: { Length: > 0 } externalAccess } extended)
+        {
+            player.AccessToken = externalAccess;
+            var expiry = UnicoreCMSAuthService.TryGetJwtExpiry(externalAccess);
+            if (expiry.HasValue)
+                player.ExpiredDate = expiry.Value;
+
+            if (!string.IsNullOrWhiteSpace(player.Uuid))
+                tokenStore.SetRefreshToken(player.Uuid, extended.RefreshToken);
+
+            await gmlManager.Users.UpdateUser(player);
+            return;
+        }
+
+        // Fallback: Gml-issued JWT (10 days).
+        player.AccessToken = accessTokenService.GenerateAccessToken(
+            player.Uuid,
+            player.Name,
+            player.Name,
+            ["Player"], ["profiles.view", "integrations.news.view"], 60 * 24 * 10);
+
+        if (!string.IsNullOrWhiteSpace(player.Uuid))
+            tokenStore.SetRefreshToken(player.Uuid, null);
+
+        await gmlManager.Users.UpdateUser(player);
+    }
+
     public static async Task<IResult> Auth(
         HttpContext context,
         IGmlManager gmlManager,
         IAccessTokenService accessTokenService,
+        ExternalPlayerTokenStore tokenStore,
         IMapper mapper,
         IValidator<BaseUserPassword> validator,
         IAuthService authService,
@@ -139,11 +169,7 @@ public class AuthIntegrationHandler : IAuthIntegrationHandler
                 hwid,
                 authResult.IsSlim);
 
-            player.AccessToken = accessTokenService.GenerateAccessToken(
-                player.Uuid,
-                player.Name,
-                player.Name,
-                ["Player"], ["profiles.view", "integrations.news.view"], 60 * 24 * 10); // 60 минут * 24 часа * 10 дней
+            await ApplyPlayerAccessToken(player, authResult, accessTokenService, tokenStore, gmlManager);
 
             return await HandleAuthenticatedUser(context, gmlManager, mapper, player, userAgent);
         }
@@ -172,7 +198,8 @@ public class AuthIntegrationHandler : IAuthIntegrationHandler
         IGmlManager gmlManager,
         IMapper mapper,
         IAccessTokenService accessTokenService,
-        IAuthService authService,
+        ExternalPlayerTokenStore tokenStore,
+        UnicoreCMSAuthService unicoreAuthService,
         BaseUserPassword authDto)
     {
         try
@@ -186,12 +213,43 @@ public class AuthIntegrationHandler : IAuthIntegrationHandler
                     HttpStatusCode.BadRequest));
             }
 
-            var user = await gmlManager.Users.GetUserByAccessToken(authDto.AccessToken);
             var userAgent = context.Request.Headers["User-Agent"].ToString();
+            var user = await gmlManager.Users.GetUserByAccessToken(authDto.AccessToken);
 
+            // Our JWT still valid.
             if (user is not null && accessTokenService.ValidateToken(user.AccessToken))
             {
                 return await HandleAuthenticatedUser(context, gmlManager, mapper, user, userAgent);
+            }
+
+            // External access token still matches stored value and is not expired.
+            if (user is not null
+                && string.Equals(user.AccessToken, authDto.AccessToken, StringComparison.Ordinal)
+                && user.ExpiredDate > DateTime.UtcNow)
+            {
+                return await HandleAuthenticatedUser(context, gmlManager, mapper, user, userAgent);
+            }
+
+            // External access expired / not our JWT — try Unicore refresh.
+            if (authType is AuthType.UnicoreCMS && user is not null)
+            {
+                var refresh = tokenStore.GetRefreshToken(user.Uuid);
+                if (!string.IsNullOrWhiteSpace(refresh))
+                {
+                    var refreshed = await unicoreAuthService.RefreshAsync(refresh);
+                    if (refreshed is { IsSuccess: true, AccessToken: { Length: > 0 } newAccess })
+                    {
+                        user.AccessToken = newAccess;
+                        var expiry = UnicoreCMSAuthService.TryGetJwtExpiry(newAccess);
+                        if (expiry.HasValue)
+                            user.ExpiredDate = expiry.Value;
+
+                        tokenStore.SetRefreshToken(user.Uuid, refreshed.RefreshToken);
+                        await gmlManager.Users.UpdateUser(user);
+
+                        return await HandleAuthenticatedUser(context, gmlManager, mapper, user, userAgent);
+                    }
+                }
             }
 
             return Results.BadRequest(ResponseMessage.Create(

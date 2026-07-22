@@ -1,8 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Gml.Domains.Integrations;
 using GmlCore.Interfaces;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Gml.Web.Api.Core.Integrations.Auth;
 
@@ -66,7 +66,7 @@ public class UnicoreCMSAuthService(IHttpClientFactory httpClientFactory, IGmlMan
             };
         }
 
-        return new AuthResult
+        return new ExtendedAuthResult
         {
             Login = data.User.Username ?? login,
             IsSuccess = result.IsSuccessStatusCode,
@@ -74,7 +74,67 @@ public class UnicoreCMSAuthService(IHttpClientFactory httpClientFactory, IGmlMan
             IsSlim = data.User.Skin?.Slim ?? false,
             TwoFactorEnabled = data.User.TwoFactorEnabled is true,
             TwoFactorSecret = data.User.TwoFactorSecret?.ToString(),
-            TwoFactorSecretTemp = data.User.TwoFactorSecretTemp
+            TwoFactorSecretTemp = data.User.TwoFactorSecretTemp,
+            AccessToken = data.AccessToken,
+            RefreshToken = data.RefreshToken
         };
+    }
+
+    /// <summary>
+    /// Exchange Unicore refresh token for a new access/refresh pair.
+    /// </summary>
+    public async Task<ExtendedAuthResult?> RefreshAsync(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return null;
+
+        var authService = await gmlManager.Integrations.GetActiveAuthService();
+        if (authService is null || string.IsNullOrWhiteSpace(authService.Endpoint))
+            return null;
+
+        var baseUri = new Uri(authService.Endpoint);
+        var endpoint = $"{baseUri.Scheme}://{baseUri.Host}/auth/refresh";
+
+        var content = new StringContent(
+            JsonConvert.SerializeObject(new { refreshToken }),
+            Encoding.UTF8,
+            "application/json");
+
+        var response = await _httpClient.PostAsync(endpoint, content);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var data = JsonConvert.DeserializeObject<UnicoreAuthResult>(body);
+        if (data is null || string.IsNullOrWhiteSpace(data.AccessToken))
+            return null;
+
+        return new ExtendedAuthResult
+        {
+            IsSuccess = true,
+            AccessToken = data.AccessToken,
+            RefreshToken = data.RefreshToken,
+            Uuid = data.User?.Uuid,
+            Login = data.User?.Username
+        };
+    }
+
+    public static DateTime? TryGetJwtExpiry(string? jwt)
+    {
+        if (string.IsNullOrWhiteSpace(jwt))
+            return null;
+
+        try
+        {
+            var token = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+            return token.ValidTo.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(token.ValidTo, DateTimeKind.Utc)
+                : token.ValidTo.ToUniversalTime();
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

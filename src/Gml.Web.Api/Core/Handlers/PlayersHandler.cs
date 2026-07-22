@@ -5,7 +5,9 @@ using Gml.Dto.Messages;
 using Gml.Dto.Player;
 using Gml.Models.User;
 using Gml.Web.Api.Core.Hubs.Controllers;
+using Gml.Web.Api.Core.Services;
 using GmlCore.Interfaces;
+using GmlCore.Interfaces.Auth;
 using GmlCore.Interfaces.User;
 
 namespace Gml.Web.Api.Core.Handlers;
@@ -201,6 +203,80 @@ public class PlayersHandler : IPlayersHandler
         }
 
         return Results.Ok(ResponseMessage.Create("Пользователь(и) успешно разблокированы", HttpStatusCode.OK));
+    }
+
+    public static async Task<IResult> GetUnicoreCabinet(
+        string userUuid,
+        UnicorePlayerCabinetService cabinetService)
+    {
+        if (string.IsNullOrWhiteSpace(userUuid))
+        {
+            return Results.BadRequest(ResponseMessage.Create("Не передан UUID игрока", HttpStatusCode.BadRequest));
+        }
+
+        var data = await cabinetService.GetCabinetAsync(userUuid);
+        return Results.Ok(ResponseMessage.Create(data, string.Empty, HttpStatusCode.OK));
+    }
+
+    /// <summary>
+    /// Launcher/player self-service Unicore cabinet.
+    /// Resolves the player by AccessToken (Gml JWT or Unicore JWT stored on the user).
+    /// </summary>
+    public static async Task<IResult> GetMyUnicoreCabinet(
+        HttpContext httpContext,
+        IGmlManager gmlManager,
+        IAccessTokenService accessTokenService,
+        UnicorePlayerCabinetService cabinetService)
+    {
+        var authHeader = httpContext.Request.Headers.Authorization.ToString();
+        if (string.IsNullOrWhiteSpace(authHeader)
+            || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Unauthorized();
+        }
+
+        var token = authHeader["Bearer ".Length..].Trim();
+        if (string.IsNullOrWhiteSpace(token))
+            return Results.Unauthorized();
+
+        IUser? user = await gmlManager.Users.GetUserByAccessToken(token);
+
+        if (user is null)
+        {
+            var uuid = TryReadUuidFromJwt(token);
+            if (!string.IsNullOrWhiteSpace(uuid))
+                user = await gmlManager.Users.GetUserByUuid(uuid);
+        }
+
+        if (user is null && accessTokenService.ValidateToken(token))
+        {
+            var uuid = TryReadUuidFromJwt(token);
+            if (!string.IsNullOrWhiteSpace(uuid))
+                user = await gmlManager.Users.GetUserByUuid(uuid);
+        }
+
+        if (user is null)
+            return Results.Unauthorized();
+
+        var data = await cabinetService.GetCabinetAsync(user.Uuid);
+        return Results.Ok(ResponseMessage.Create(data, string.Empty, HttpStatusCode.OK));
+    }
+
+    private static string? TryReadUuidFromJwt(string jwt)
+    {
+        try
+        {
+            var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(jwt);
+            return token.Claims.FirstOrDefault(c =>
+                       c.Type is "uuid" or "sub" or "nameid"
+                       || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier
+                       || c.Type.EndsWith("/nameidentifier", StringComparison.OrdinalIgnoreCase))
+                   ?.Value;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 

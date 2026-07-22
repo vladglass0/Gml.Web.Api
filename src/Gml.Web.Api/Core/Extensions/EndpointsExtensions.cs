@@ -145,6 +145,18 @@ public static class EndpointsExtensions
             .Produces<ResponseMessage<UserAuthReadDto>>()
             .Produces<ResponseMessage>((int)HttpStatusCode.BadRequest);
 
+        app.MapGet("/api/v1/users/me/unicore", PlayersHandler.GetMyUnicoreCabinet)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Unicore-кабинет текущего игрока (лаунчер)";
+                return generatedOperation;
+            })
+            .WithDescription("Playtime, привилегии и баланс UnicoreCMS для авторизованного игрока")
+            .WithName("My Unicore cabinet")
+            .WithTags("Users")
+            .AllowAnonymous()
+            .Produces<ResponseMessage>((int)HttpStatusCode.Unauthorized);
+
         app.MapDelete("/api/v1/users/{userId:int}", AuthHandler.DeleteUser)
             .WithOpenApi(generatedOperation =>
             {
@@ -1002,6 +1014,18 @@ public static class EndpointsExtensions
             .WithName("Players list")
             .WithTags("Players")
             .Produces<ResponseMessage<List<IUser>>>()
+            .Produces<ResponseMessage>((int)HttpStatusCode.BadRequest)
+            .RequireAuthorization("perm:players.view");
+
+        app.MapGet("/api/v1/players/{userUuid}/unicore", PlayersHandler.GetUnicoreCabinet)
+            .WithOpenApi(generatedOperation =>
+            {
+                generatedOperation.Summary = "Unicore: playtime и привилегии игрока";
+                return generatedOperation;
+            })
+            .WithDescription("Данные кабинета UnicoreCMS для карточки игрока")
+            .WithName("Player Unicore cabinet")
+            .WithTags("Players")
             .Produces<ResponseMessage>((int)HttpStatusCode.BadRequest)
             .RequireAuthorization("perm:players.view");
 

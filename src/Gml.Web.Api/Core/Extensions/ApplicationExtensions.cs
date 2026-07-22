@@ -199,6 +199,8 @@ public static class ApplicationExtensions
             .AddSingleton<IGitHubService, GitHubService>()
             .AddSingleton<ApplicationContext>()
             .AddSingleton<IAccessTokenService, AccessTokenService>()
+            .AddSingleton<ExternalPlayerTokenStore>()
+            .AddScoped<UnicorePlayerCabinetService>()
             .AddTransient<UndefinedAuthService>()
             .AddTransient<DataLifeEngineAuthService>()
             .AddTransient<UnicoreCMSAuthService>()

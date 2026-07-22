@@ -56,25 +56,110 @@ public class GitHubService : IGitHubService
             var branches = JArray.Parse(responseString);
 
             _versions = branches.Select(c => c["name"]!.ToString()).ToArray();
+            return _versions;
         }
 
-        return _versions ?? Array.Empty<string>();
+        return Array.Empty<string>();
     }
 
     /// <summary>
-    /// Tags plus default branch (so latest master is always selectable).
+    /// Published launcher versions only (GitHub Releases / tags). Never includes branch names like master.
+    /// Uses git ls-remote as fallback when the GitHub API is rate-limited.
     /// </summary>
     public async Task<IEnumerable<string>> GetLauncherVersions(string user, string repository)
     {
-        var tags = (await GetRepositoryTags(user, repository)).ToList();
-        var versions = new List<string>();
+        var versions = (await TryGetPublishedReleaseTags(user, repository)).ToList();
 
-        if (!tags.Any(t => string.Equals(t, LauncherGitHubDefaults.DefaultBranch, StringComparison.OrdinalIgnoreCase)))
-            versions.Add(LauncherGitHubDefaults.DefaultBranch);
+        if (versions.Count == 0)
+            versions = (await ListRemoteGitTags($"https://github.com/{user}/{repository}.git")).ToList();
 
-        versions.AddRange(tags);
-        return versions.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (versions.Count == 0)
+            versions = (await GetRepositoryTags(user, repository)).ToList();
+
+        return versions
+            .Where(v => !string.IsNullOrWhiteSpace(v) && !IsExcludedBranchName(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
+
+    private async Task<IEnumerable<string>> TryGetPublishedReleaseTags(string user, string repository)
+    {
+        try
+        {
+            var url = $"https://api.github.com/repos/{user}/{repository}/releases?per_page=100";
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("request");
+
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+                return Array.Empty<string>();
+
+            var releases = JArray.Parse(await response.Content.ReadAsStringAsync());
+            return releases
+                .Where(r => r["draft"]?.Value<bool>() != true)
+                .Select(r => r["tag_name"]?.ToString())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Cast<string>()
+                .ToArray();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static async Task<IEnumerable<string>> ListRemoteGitTags(string repoUrl)
+    {
+        try
+        {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = $"ls-remote --tags --refs \"{repoUrl}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = processInfo };
+            process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+                return Array.Empty<string>();
+
+            return output
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(line =>
+                {
+                    var parts = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length < 2)
+                        return null;
+
+                    const string prefix = "refs/tags/";
+                    var refName = parts[^1];
+                    return refName.StartsWith(prefix, StringComparison.Ordinal)
+                        ? refName[prefix.Length..]
+                        : null;
+                })
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Cast<string>()
+                .OrderByDescending(t => t, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static bool IsExcludedBranchName(string name) =>
+        name.Equals("master", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("main", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("develop", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("dev", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("HEAD", StringComparison.OrdinalIgnoreCase);
 
     // public async Task<string> DownloadProject(string projectPath, string branchName, string repoUrl)
     // {
