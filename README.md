@@ -25,7 +25,7 @@ Follow these steps to clone, configure, and run the Gml.Web.Api project.
 Clone the repository using Git:
 
 ```bash
-git clone --recursive https://github.com/Nik497926/Gml.Web.Api.git
+git clone --recursive https://github.com/vladglass0/Gml.Web.Api.git
 cd Gml.Web.Api
 ```
 
@@ -156,5 +156,5 @@ Replace `/path/to/local/db` with a local directory to store the SQLite database 
 ## Additional Notes
 
 - For production, configure HTTPS and use a reverse proxy (e.g., Nginx).
-- Monitor the API using the Gml.Web.Client dashboard from the [Gml.Backend repository](https://github.com/Nik497926/Gml.Backend).
-- Visit the [Nik497926 GitHub profile](https://github.com/Nik497926) or open an issue in this repository for support.
+- Monitor the API using the Gml.Web.Client dashboard from the [Gml.Backend repository](https://github.com/vladglass0/Gml.Backend).
+- Visit the [vladglass0 GitHub profile](https://github.com/vladglass0) or open an issue in this repository for support.

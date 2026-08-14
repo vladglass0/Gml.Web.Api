@@ -1,10 +1,10 @@
 ![Banner](https://github.com/user-attachments/assets/48ab1c5d-6c38-4d1a-80ba-92db9afe8437)
 
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Nik497926/Gml.Web.Api/docker-package-publish.yml?label=Tests&style=for-the-badge&branch=master)
-![GitHub contributors](https://img.shields.io/github/contributors/Nik497926/Gml.Web.Api?style=for-the-badge)
-![Size](https://img.shields.io/github/repo-size/Nik497926/Gml.Web.Api?style=for-the-badge)
-![License](https://img.shields.io/github/license/Nik497926/Gml.Web.Api?style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/vladglass0/Gml.Web.Api/docker-package-publish.yml?label=Tests&style=for-the-badge&branch=master)
+![GitHub contributors](https://img.shields.io/github/contributors/vladglass0/Gml.Web.Api?style=for-the-badge)
+![Size](https://img.shields.io/github/repo-size/vladglass0/Gml.Web.Api?style=for-the-badge)
+![License](https://img.shields.io/github/license/vladglass0/Gml.Web.Api?style=for-the-badge)
 
 # Gml.Web.Api
 
@@ -14,4 +14,4 @@ designed to facilitate rapid deployment of server infrastructure for Minecraft g
 # Documentation
 [Official documentation](https://wiki.recloud.tech)
 
-[Official wiki mirror](https://nik497926.github.io/Gml.Docs/home.html)
+[Official wiki mirror](https://vladglass0.github.io/Gml.Docs/home.html)
